@@ -350,6 +350,60 @@ export class MemoirIntegrations {
   }
 
   /**
+   * Add a single narrative section directly to memoir_data
+   */
+  static async addNarrativeSection(
+    userId: string,
+    type: 'personal_story' | 'memory' | 'value' | 'wisdom' | 'reflection',
+    narrative: { title: string; content: string; timestamp: string; aiEnhanced?: boolean }
+  ) {
+    const keyMap = {
+      personal_story: 'personal_stories',
+      memory: 'memories',
+      value: 'values',
+      wisdom: 'wisdom',
+      reflection: 'reflections'
+    } as const;
+
+    const storageKey = keyMap[type];
+
+    try {
+      const { data: profile, error: fetchError } = await supabase
+        .from('profiles')
+        .select('memoir_data')
+        .eq('user_id', userId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const currentData = (profile.memoir_data as MemoirData) || {};
+      const currentNarratives = currentData.narratives || {} as any;
+      const existingList = currentNarratives[storageKey] || [];
+
+      const updatedNarratives = {
+        ...currentNarratives,
+        [storageKey]: [...existingList, narrative]
+      };
+
+      const updatedData = {
+        ...currentData,
+        narratives: updatedNarratives
+      } as MemoirData;
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({ memoir_data: updatedData })
+        .eq('user_id', userId);
+
+      if (error) throw error;
+      return updatedData;
+    } catch (error) {
+      console.error('Error adding narrative section:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Store gaming preferences
    */
   static async storeGamingPreferences(userId: string, games: GameEntry[]) {

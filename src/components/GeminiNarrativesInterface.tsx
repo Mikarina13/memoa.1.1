@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Brain, Save, Sparkles, ExternalLink, CheckCircle, AlertCircle, PenTool, FileText, Trash2, Download, Upload } from 'lucide-react';
 import { MemoirIntegrations } from '../lib/memoir-integrations';
 import { useAuth } from '../hooks/useAuth';
@@ -29,7 +29,6 @@ export function GeminiNarrativesInterface({ onNarrativesProcessed, onClose }: Ge
     timestamp: new Date()
   });
   const [processStatus, setProcessStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
-  const [showAffiliatePrompt, setShowAffiliatePrompt] = useState(false);
   const [processError, setProcessError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'write' | 'manage'>('write');
   const [selectedType, setSelectedType] = useState<NarrativeSection['type']>('personal_story');
@@ -72,7 +71,7 @@ export function GeminiNarrativesInterface({ onNarrativesProcessed, onClose }: Ge
     }
   };
 
-  const handleSaveNarrative = () => {
+  const handleSaveNarrative = async () => {
     if (!currentNarrative.title.trim() || !currentNarrative.content.trim()) {
       alert('Please fill in both title and content');
       return;
@@ -86,6 +85,19 @@ export function GeminiNarrativesInterface({ onNarrativesProcessed, onClose }: Ge
     };
 
     setNarratives(prev => [...prev, newNarrative]);
+
+    if (user) {
+      try {
+        await MemoirIntegrations.addNarrativeSection(user.id, selectedType, {
+          title: newNarrative.title,
+          content: newNarrative.content,
+          timestamp: newNarrative.timestamp.toISOString(),
+          aiEnhanced: false
+        });
+      } catch (error) {
+        console.error('Error saving narrative:', error);
+      }
+    }
     setCurrentNarrative({
       id: '',
       title: '',
@@ -133,18 +145,10 @@ export function GeminiNarrativesInterface({ onNarrativesProcessed, onClose }: Ge
 
   const openGeminiAffiliate = () => {
     window.open('https://makersuite.google.com/app/apikey', '_blank');
-    setShowAffiliatePrompt(false);
   };
 
   const processWithGeminiAI = async () => {
     if (!user || narratives.length === 0) return;
-
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-    
-    if (!apiKey) {
-      setShowAffiliatePrompt(true);
-      return;
-    }
 
     setProcessStatus('processing');
     setProcessError(null);
@@ -500,54 +504,6 @@ export function GeminiNarrativesInterface({ onNarrativesProcessed, onClose }: Ge
         )}
       </div>
 
-      {/* Affiliate Prompt Modal */}
-      <AnimatePresence>
-        {showAffiliatePrompt && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-60"
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-black/90 border border-emerald-500/30 rounded-xl p-6 max-w-md mx-4"
-            >
-              <h3 className="text-xl font-bold text-white mb-4">Get Gemini API Access</h3>
-              <p className="text-white/70 mb-6">
-                To process your narratives with AI, you'll need a Google Gemini API key. It's free to get started!
-              </p>
-              
-              <div className="bg-emerald-500/20 border border-emerald-500/30 rounded-lg p-4 mb-6">
-                <div className="text-emerald-400 font-medium">Gemini API Benefits:</div>
-                <ul className="text-white/70 text-sm mt-2 space-y-1">
-                  <li>• Advanced language understanding</li>
-                  <li>• Powerful text analysis</li>
-                  <li>• Free tier available</li>
-                  <li>• Industry-leading AI technology</li>
-                </ul>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={openGeminiAffiliate}
-                  className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-lg transition-colors"
-                >
-                  Get API Key
-                </button>
-                <button
-                  onClick={() => setShowAffiliatePrompt(false)}
-                  className="px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </motion.div>
   );
 }
